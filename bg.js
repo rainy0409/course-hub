@@ -16,14 +16,17 @@ let api = { enable() {}, disable() {}, ready: false };
 
 (async function init() {
   let THREE = null;
-  const CDNS = [
-    'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js',
-    'https://unpkg.com/three@0.160.0/build/three.module.js'
+  /* 优先本地 vendor（国内网络必成），失败再试 CDN */
+  const SOURCES = [
+    './vendor/three.module.min.js',
+    './three.module.min.js',
+    'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js',
+    'https://unpkg.com/three@0.160.0/build/three.module.min.js'
   ];
-  for (const url of CDNS) {
+  for (const url of SOURCES) {
     try { THREE = await import(url); break; } catch (e) { /* 换下一个源 */ }
   }
-  if (!THREE) return; // CDN 均不可用时保持纯 CSS 背景
+  if (!THREE) return; // 全部不可用时保持纯 CSS 背景
 
   const canvas = document.getElementById('bgCanvas');
   if (!canvas) return;
@@ -34,7 +37,7 @@ let api = { enable() {}, disable() {}, ready: false };
   camera.lookAt(0, 0, 0);
 
   const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setClearColor(0x000000, 0);
 
@@ -42,7 +45,7 @@ let api = { enable() {}, disable() {}, ready: false };
   scene.add(group);
 
   /* ---------- 1. 流动数学曲面（点云） ---------- */
-  const COLS = 88, ROWS = 58, SEP = 0.15;
+  const COLS = 44, ROWS = 30, SEP = 0.3;
   const COUNT = COLS * ROWS;
   const pos = new Float32Array(COUNT * 3);
   const base = new Float32Array(COUNT * 2);
@@ -67,7 +70,7 @@ let api = { enable() {}, disable() {}, ready: false };
 
   /* ---------- 2. 环面纽结线框（拓扑） ---------- */
   const knot = new THREE.LineSegments(
-    new THREE.WireframeGeometry(new THREE.TorusKnotGeometry(1.55, 0.42, 140, 14)),
+    new THREE.WireframeGeometry(new THREE.TorusKnotGeometry(1.55, 0.42, 110, 10)),
     new THREE.LineBasicMaterial({ color: 0x6b8cc7, transparent: true, opacity: 0.12, depthWrite: false })
   );
   knot.position.set(2.7, 0.5, -2.2);
@@ -76,7 +79,7 @@ let api = { enable() {}, disable() {}, ready: false };
 
   /* ---------- 2b. 坐标球（黄铜色经纬线框，呼应铜金主色） ---------- */
   const sphere = new THREE.LineSegments(
-    new THREE.WireframeGeometry(new THREE.SphereGeometry(1.35, 18, 12)),
+    new THREE.WireframeGeometry(new THREE.SphereGeometry(1.35, 12, 8)),
     new THREE.LineBasicMaterial({ color: 0xa07a3f, transparent: true, opacity: 0.11, depthWrite: false })
   );
   sphere.position.set(-3.6, 0.7, -2.4);
@@ -88,11 +91,11 @@ let api = { enable() {}, disable() {}, ready: false };
     new THREE.Vector3(0, -2.4, 0), new THREE.Vector3(0, 3.2, 0),
     new THREE.Vector3(0, 0, -6), new THREE.Vector3(0, 0, 4)
   ]);
-  group.add(new THREE.LineSegments(axisGeo,
-    new THREE.LineBasicMaterial({ color: 0x8a7a5c, transparent: true, opacity: 0.09, depthWrite: false })));
+  const axesMat = new THREE.LineBasicMaterial({ color: 0x8a7a5c, transparent: true, opacity: 0.09, depthWrite: false });
+  group.add(new THREE.LineSegments(axisGeo, axesMat));
 
   /* ---------- 2d. 上浮微粒（少量，增强空气感） ---------- */
-  const DUST = 90;
+  const DUST = 40;
   const dustPos = new Float32Array(DUST * 3);
   const dustSeed = new Float32Array(DUST);
   for (let i = 0; i < DUST; i++) {
@@ -121,7 +124,7 @@ let api = { enable() {}, disable() {}, ready: false };
     'd/dx [f\u2032(x)\u00b2] = 2f\u2032f\u2033'
   ];
 
-  function makeFormulaSprite(text) {
+  function makeFormulaTexture(text, dark) {
     const c = document.createElement('canvas');
     let ctx = c.getContext('2d');
     const font = 'italic 34px "Times New Roman", "Cambria Math", "STIX Two Math", serif';
@@ -130,16 +133,21 @@ let api = { enable() {}, disable() {}, ready: false };
     c.width = w + 48; c.height = 84;
     ctx = c.getContext('2d');
     ctx.font = font;
-    ctx.fillStyle = 'rgba(48,74,138,0.9)';
+    ctx.fillStyle = dark ? 'rgba(216,200,160,0.9)' : 'rgba(48,74,138,0.9)';
     ctx.textBaseline = 'middle';
     ctx.fillText(text, 24, 44);
     const tex = new THREE.CanvasTexture(c);
     tex.needsUpdate = true;
+    return tex;
+  }
+
+  function makeFormulaSprite(text, dark) {
+    const tex = makeFormulaTexture(text, dark);
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({
       map: tex, transparent: true, opacity: 0.15, depthWrite: false
     }));
     const h = 0.72;
-    sp.scale.set((c.width / c.height) * h, h, 1);
+    sp.scale.set((sp.material.map.image.width / sp.material.map.image.height) * h, h, 1);
     return sp;
   }
 
@@ -156,6 +164,40 @@ let api = { enable() {}, disable() {}, ready: false };
     return sp;
   });
 
+  /* ---------- 主题切换（与页面深浅色联动） ---------- */
+
+  const THEMES = {
+    light: { points: 0x9db3e4, pointsOp: .5, knot: 0x6b8cc7, knotOp: .12, sphere: 0xa07a3f, sphereOp: .11, dust: 0xa07a3f, dustOp: .35, axes: 0x8a7a5c, axesOp: .09, formulaOp: .15 },
+    dark: { points: 0xa8bce6, pointsOp: .5, knot: 0x9db4e0, knotOp: .18, sphere: 0xd4b478, sphereOp: .16, dust: 0xd4b478, dustOp: .34, axes: 0xa89a72, axesOp: .12, formulaOp: .2 }
+  };
+
+  function isDark() {
+    return document.documentElement.dataset.theme === 'dark';
+  }
+
+  function applyBgTheme() {
+    const T = THEMES[isDark() ? 'dark' : 'light'];
+    surf.material.color.setHex(T.points);
+    surf.material.opacity = T.pointsOp;
+    knot.material.color.setHex(T.knot);
+    knot.material.opacity = T.knotOp;
+    sphere.material.color.setHex(T.sphere);
+    sphere.material.opacity = T.sphereOp;
+    dust.material.color.setHex(T.dust);
+    dust.material.opacity = T.dustOp;
+    axesMat.color.setHex(T.axes);
+    axesMat.opacity = T.axesOp;
+    sprites.forEach((sp, i) => {
+      sp.material.map.dispose();
+      sp.material.map = makeFormulaTexture(FORMULAS[i], isDark());
+      sp.material.opacity = T.formulaOp;
+      sp.material.needsUpdate = true;
+    });
+  }
+
+  window.addEventListener('coursehub-theme', () => { try { applyBgTheme(); } catch (e) { /* 忽略 */ } });
+  applyBgTheme();
+
   /* ---------- 动画循环 ---------- */
   const clock = new THREE.Clock();
   let running = false;
@@ -166,9 +208,16 @@ let api = { enable() {}, disable() {}, ready: false };
     ty = (e.clientY / window.innerHeight) - 0.5;
   }, { passive: true });
 
-  function frame() {
+  /* 30fps 节流即可（不做低帧自杀：背景是页面标识，卡就卡在 30fps，用户可在设置关闭） */
+  let lastFrameTs = 0;
+
+  function frame(ts) {
     rafId = 0;
     if (!running) return;
+
+    if (ts - lastFrameTs < 33) { rafId = requestAnimationFrame(frame); return; }
+    lastFrameTs = ts;
+
     const t = clock.getElapsedTime();
 
     const attr = surfGeo.attributes.position;
