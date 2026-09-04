@@ -173,12 +173,82 @@ function setSaveState(s, text) {
   if (!chip) return;
   chip.dataset.state = s;
   $('.save-text', chip).textContent = text
-    || (s === 'idle' ? (mode === 'server' ? '已保存' : '已存本机')
+    || (s === 'idle' ? (mode === 'remote' ? '已云端同步' : mode === 'server' ? '已保存' : '已存本机')
       : s === 'saving' ? '保存中…' : '保存失败');
+}
+
+/* Supabase 云端同步（remote 模式）：anon/publishable key 为公开密钥，可置于前端 */
+const SUPA_URL = 'https://chbkxgjzfkfcauiqocjz.supabase.co';
+const SUPA_KEY = 'sb_publishable_A4w8K90dqkgWShYif-1WXg_UpErnZil';
+
+function supaHeaders(withAuth) {
+  const h = {
+    'apikey': SUPA_KEY,
+    'Accept': 'application/json',
+    'Content-Type': 'application/json'
+  };
+  if (withAuth) h['Authorization'] = 'Bearer ' + SUPA_KEY;
+  return h;
+}
+
+/* 先只带 apikey，若 401 再补 Authorization 重试 */
+async function supaFetch(path, opts) {
+  const base = opts || {};
+  let last = null;
+  for (const withAuth of [false, true]) {
+    const r = await fetch(SUPA_URL + path, {
+      method: base.method || 'GET',
+      headers: supaHeaders(withAuth),
+      body: base.body
+    });
+    if (r.status !== 401) return r;
+    last = r;
+  }
+  return last;
+}
+
+async function supaLoad() {
+  const r = await supaFetch('/rest/v1/app_state?id=eq.1&select=data,updated_at');
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const arr = await r.json();
+  if (!arr || !arr.length || !arr[0].data) return { empty: true };
+  return { empty: false, data: arr[0].data, updatedAt: arr[0].updated_at };
+}
+
+async function supaSave(stateObj) {
+  const now = new Date().toISOString();
+  let r = await supaFetch('/rest/v1/app_state?id=eq.1', {
+    method: 'PATCH',
+    body: JSON.stringify({ data: stateObj, updated_at: now })
+  });
+  if (!r.ok) {
+    r = await supaFetch('/rest/v1/app_state', {
+      method: 'POST',
+      body: JSON.stringify({ id: 1, data: stateObj, updated_at: now })
+    });
+  }
+  if (!r.ok) throw new Error('HTTP ' + r.status);
 }
 
 function save(immediate) {
   clearTimeout(saveTimer);
+
+  /* 云端模式：写 Supabase + 本地缓存兜底 */
+  if (mode === 'remote') {
+    const runRemote = () => {
+      setSaveState('saving', '同步中…');
+      saveToBrowser();
+      supaSave(state)
+        .then(() => setSaveState('idle', '已云端同步'))
+        .catch((e) => {
+          setSaveState('error', '同步失败');
+          toast('云端同步失败（数据已存本机缓存）：' + e.message, true);
+        });
+    };
+    if (immediate) runRemote();
+    else saveTimer = setTimeout(runRemote, 500);
+    return;
+  }
 
   /* 无后端：写浏览器 localStorage */
   if (mode === 'browser') {
@@ -1131,7 +1201,8 @@ function renderSettings() {
     + '</div></div>';
 
   html += '<div class="card pad mt14"><div class="section-head"><h2>数据</h2><span class="sub">'
-    + (mode === 'server' ? '保存在本机 course-hub/data/state.json' : '线上版：保存在当前浏览器 localStorage')
+    + (mode === 'remote' ? '已接入 Supabase 云数据库，两人共用同一份数据'
+      : mode === 'server' ? '保存在本机 course-hub/data/state.json' : '线上版：保存在当前浏览器 localStorage')
     + '</span></div>'
     + '<div class="mini-list">'
     + '<div class="mini-item"><div class="mi-main"><div>导出课表到日历</div><div class="mi-sub">生成 .ics 文件，可导入手机日历 / Google 日历 / Outlook，自动带上课提醒</div></div>'
@@ -1778,6 +1849,8 @@ function bind() {
 
 async function boot() {
   let loaded = false;
+
+  /* 1) 自托管后端（本机 Node / EdgeOne 边缘函数） */
   try {
     const res = await fetch('/api/state');
     const j = await res.json();
@@ -1786,13 +1859,38 @@ async function boot() {
       mode = 'server';
       loaded = true;
     }
-  } catch (e) { /* 静态托管下没有后端接口，走浏览器模式 */ }
+  } catch (e) { /* 没有后端接口，继续尝试云端 */ }
 
+  /* 2) Supabase 云数据库（两人共用同一份数据） */
+  if (!loaded) {
+    try {
+      const res = await supaLoad();
+      if (!res.empty && res.data && Array.isArray(res.data.courses)) {
+        state = res.data;
+        mode = 'remote';
+        loaded = true;
+      } else if (res.empty) {
+        /* 云端还没有数据：用本地缓存或初始课程先占位，并立即推上去 */
+        mode = 'remote';
+        state = loadFromBrowser() || buildFromClientSeed();
+        if (state) {
+          await supaSave(state);
+          loaded = true;
+          setTimeout(() => toast('云端已初始化课程数据，两人现在共用这一份'), 800);
+        }
+      }
+    } catch (e) { /* Supabase 不可达，降级浏览器模式 */ }
+  }
+
+  /* 3) 纯浏览器模式 */
   if (!loaded) {
     mode = 'browser';
     state = loadFromBrowser() || buildFromClientSeed();
     if (!state) throw new Error('无法加载课程数据');
   }
+
+  /* 所有模式都写一份本地缓存，断网/换后端时有兜底 */
+  saveToBrowser();
 
   if (!state.slots || !state.slots.length) {
     state.slots = [
