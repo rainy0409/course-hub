@@ -2,13 +2,19 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1c3049">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
 <title>课程管理平台 · 我和下雨天</title>
+<script>try{if(localStorage.getItem('coursehub-theme')==='dark')document.documentElement.dataset.theme='dark';}catch(e){}</script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='9' fill='%231c3049'/%3E%3Crect x='4' y='4' width='32' height='32' rx='6' fill='none' stroke='%23c9a86a' stroke-opacity='.5'/%3E%3Ctext x='20' y='22' text-anchor='middle' dominant-baseline='central' font-family='Georgia,serif' font-size='20' fill='%23dcc08a'%3E%E2%88%91%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.cn">
 <link rel="preconnect" href="https://fonts.gstatic.cn" crossorigin>
 <link href="https://fonts.googleapis.cn/css2?family=Noto+Serif+SC:wght@500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=20260904f">
 </head>
 <body>
 
@@ -53,6 +59,8 @@
       <div class="save-chip" id="saveChip" data-state="idle">
         <span class="save-dot"></span><span class="save-text">已保存</span>
       </div>
+
+      <button type="button" class="icon-btn theme-btn" id="themeBtn" title="切换深浅色">🌙</button>
     </div>
   </div>
 
@@ -61,6 +69,7 @@
     <button type="button" class="tab" data-view="timetable">课表</button>
     <button type="button" class="tab" data-view="courses">课程</button>
     <button type="button" class="tab" data-view="homework">作业</button>
+    <button type="button" class="tab" data-view="exam">考试</button>
     <button type="button" class="tab" data-view="score">量化加分</button>
     <button type="button" class="tab" data-view="settings">设置</button>
   </nav>
@@ -82,8 +91,28 @@
 
 <div class="toast-wrap" id="toastWrap"></div>
 
-<script src="seed.js"></script>
-<script src="app.js"></script>
-<script type="module" src="bg.js"></script>
+<!-- 移动端底部 Tab（≤760px 显示） -->
+<nav class="bottom-tab" id="bottomTab" role="tablist">
+  <button type="button" class="bt is-active" data-view="dash"><span class="ico">◫</span>概览</button>
+  <button type="button" class="bt" data-view="timetable"><span class="ico">▦</span>课表</button>
+  <button type="button" class="bt" data-view="homework"><span class="ico">✎</span>作业<span class="dot" id="btHwDot" hidden>0</span></button>
+  <button type="button" class="bt" data-view="exam"><span class="ico">⏱</span>考试<span class="dot" id="btExDot" hidden>0</span></button>
+  <button type="button" class="bt" data-view="more"><span class="ico">☰</span>更多</button>
+</nav>
+
+<!-- 「更多」弹出菜单 -->
+<div class="more-sheet" id="moreSheet" hidden>
+  <div class="ms-mask" data-close="1"></div>
+  <div class="ms-panel">
+    <button type="button" class="ms-item" data-view="courses"><span class="ms-ico">📚</span>课程</button>
+    <button type="button" class="ms-item" data-view="score"><span class="ms-ico">🧮</span>量化加分</button>
+    <button type="button" class="ms-item" data-view="settings"><span class="ms-ico">⚙</span>设置</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="seed.js?v=20260904f"></script>
+<script src="app.js?v=20260904f"></script>
+<script type="module" src="bg.js?v=20260904f"></script>
 </body>
 </html>
