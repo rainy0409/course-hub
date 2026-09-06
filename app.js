@@ -602,15 +602,15 @@ function nextClassInfo() {
   return cands[0] || null;
 }
 
-function todaySessions() {
+function sessionsOn(date) {
   /* 未开学（第 0 周）没有课 */
   if (currentWeek() <= 0) return [];
   const week = currentWeek();
-  const today = dayIndexMon1(new Date());
+  const day = dayIndexMon1(date);
   const out = [];
   state.courses.forEach((c) => {
     c.sessions.forEach((s) => {
-      if (s.day !== today) return;
+      if (s.day !== day) return;
       if (!parseWeeks(s.weeks)[week]) return;
       const slot = slotById(s.slot);
       if (slot) out.push({ course: c, s: s, slot: slot });
@@ -619,6 +619,8 @@ function todaySessions() {
   out.sort((a, b) => toMinutes(a.slot.start) - toMinutes(b.slot.start));
   return out;
 }
+
+function todaySessions() { return sessionsOn(new Date()); }
 
 function upcomingReminders() {
   const now = new Date();
@@ -902,6 +904,24 @@ function renderDash() {
     });
     html += '</div>';
   }
+
+  /* 明天课程（紧凑小节，同卡内） */
+  const tomorrow = sessionsOn(new Date(Date.now() + 86400000));
+  const tmr = new Date(Date.now() + 86400000);
+  html += '<div class="pad" style="padding-top:2px">'
+    + '<div class="sub-title">明天 · ' + DAY_NAMES[dayIndexMon1(tmr)] + ' <span class="muted tiny">' + tomorrow.length + ' 节</span></div>';
+  if (!tomorrow.length) {
+    html += '<div class="muted tiny" style="padding:2px 0 10px">' + (cw > 0 ? '明天没有课' : '开学后这里会显示第二天的课') + '</div>';
+  } else {
+    tomorrow.forEach((t) => {
+      html += '<div class="mini-item" data-act="open-course" data-id="' + t.course.id + '" style="cursor:pointer">'
+        + '<span class="badge">' + esc(t.slot.start) + '</span>'
+        + '<div class="mi-main"><div>' + esc(t.course.name) + '</div>'
+        + '<div class="mi-sub">' + esc(t.s.room || '教室待定') + (t.course.teacher ? ' · ' + esc(t.course.teacher) : '') + '</div></div></div>';
+    });
+  }
+  html += '</div>';
+
   html += '</div></div>';
 
   /* 右：待办提醒（单卡收纳） */
