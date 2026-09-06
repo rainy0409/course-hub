@@ -1,7 +1,7 @@
 'use strict';
 
 /* =========================================================
- * 课程管理平台 · 我和下雨天
+ * 豆沙馅和下雨天 · 课程管理平台
  * 前端逻辑：周次计算 / 课表网格 / 课程提醒 / 作业双人状态 /
  *          量化加分六栏 / 多维筛选 / 待办提醒 / 实时保存
  * ========================================================= */
@@ -1298,15 +1298,15 @@ function renderTodoList() {
     buckets.inbox.forEach((t) => { html += item(t); });
   }
   if (!todos.length) {
-    html += '<div class="empty" style="padding:22px 16px"><div class="em-title">还没有待办</div>'
-      + '<div>交材料、取快递、给对方的小惊喜，都记在这里</div></div>';
+    html += '<div class="empty" style="padding:22px 16px"><div class="em-title">暂无待办</div>'
+      + '<div>不属于课程的事项可以记录在此，例如：提交材料、领取物品、办理手续</div></div>';
   }
   if (buckets.done.length) {
     html += '<div class="tk-done-summary">✓ 已完成 ' + buckets.done.length + ' 项</div>';
     buckets.done.slice(0, 5).forEach((t) => { html += item(t); });
   }
   html += '</div>'; // 闭合 todo-things
-  html += '<div class="tk-quick"><button class="btn sm primary" data-act="add-todo">+ 记一条待办</button>'
+  html += '<div class="tk-quick"><button class="btn sm primary" data-act="add-todo">+ 新增待办</button>'
     + '<span class="muted tiny">会弹出完整表单：内容、归属、截止时间、备注都能填</span></div>';
   return html;
 }
@@ -1528,6 +1528,7 @@ function renderHomework() {
         + '<div class="row-title">' + esc(a.title) + ownerBadge(a) + '</div>'
         + '<div class="row-meta">'
         + '<span class="badge">' + esc(c ? (c.shortName || c.name) : '未指定课程') + '</span>'
+        + (a.startTime ? '<span class="badge">进行 ' + esc(fmtDateShort(new Date(a.startTime))) + '</span>' : '')
         + (a.note ? '<span class="muted tiny">' + esc(a.note) + '</span>' : '')
         + showPeople.map((p) => {
           const st = hwStatus(a, p.id);
@@ -1775,7 +1776,7 @@ function renderSettings() {
 
   html += '<div class="card pad mt14"><div class="section-head"><h2>成员</h2><span class="sub">两人课表相同，作业各自独立</span></div>'
     + '<div class="form-grid">'
-    + state.people.map((p) => '<div class="field"><label>' + (p.id === 'me' ? '第一位（我）' : '第二位（下雨天）') + '</label>'
+    + state.people.map((p) => '<div class="field"><label>' + (p.id === 'me' ? '第一位（豆沙馅）' : '第二位（下雨天）') + '</label>'
       + '<input class="input" data-person-name="' + p.id + '" value="' + esc(p.name) + '"></div>').join('')
     + '</div></div>';
 
@@ -2004,7 +2005,7 @@ function openExamForm(courseId, examId) {
     + [['both', '两人'], ['me', state.people[0].name], ['rain', (state.people[1] || state.people[0]).name]]
       .map((o) => '<option value="' + o[0] + '"' + ((x ? (x.owner || 'both') : 'both') === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('')
     + '</select></div>'
-    + '<div class="field"><label>日期时间</label><input type="datetime-local" class="input" id="exDate" value="' + esc(defDate) + '"></div>'
+    + '<div class="field"><label>开始时间</label><input type="datetime-local" class="input" id="exDate" value="' + esc(defDate) + '"></div>'
     + '<div class="field"><label>地点（选填）</label><input class="input" id="exLoc" placeholder="例如：07208" value="' + esc(x ? x.location : '') + '"></div>'
     + '<div class="field span2"><label>备注（选填）</label><textarea class="textarea" id="exNote" placeholder="考试范围、题型等">' + esc(x ? x.note : '') + '</textarea></div>'
     + '</div>';
@@ -2057,6 +2058,7 @@ function openHomeworkForm(id, presetCourseId) {
     + [['both', '两人'], ['me', state.people[0].name], ['rain', (state.people[1] || state.people[0]).name]]
       .map((o) => '<option value="' + o[0] + '"' + ((a ? (a.owner || 'both') : 'both') === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('')
     + '</select></div>'
+    + '<div class="field"><label>进行时间（选填）</label><input type="datetime-local" class="input" id="hwStart" value="' + esc(a ? (a.startTime || '') : '') + '"></div>'
     + '<div class="field"><label>截止日期时间</label><input type="datetime-local" class="input" id="hwDue" value="' + esc(a ? a.due : '') + '"></div>'
     + '<div class="field"><label>公共备注（两人共享）</label><input class="input" id="hwNote" placeholder="例如：提交到学习通" value="' + esc(a ? a.note : '') + '"></div>'
     + (isNew ? '' : state.people.map((p) => {
@@ -2077,6 +2079,7 @@ function openHomeworkForm(id, presetCourseId) {
     const item = a || { id: uid('a'), status: {}, createdAt: new Date().toISOString() };
     item.courseId = $('#hwCourse').value;
     item.title = title;
+    item.startTime = $('#hwStart') ? $('#hwStart').value : '';
     item.due = $('#hwDue').value;
     item.note = $('#hwNote').value.trim();
     item.kind = $('#hwKind').value || 'normal';
@@ -2211,10 +2214,11 @@ function animateView() {
 
 function updateHeader() {
   const cw = currentWeek();
-  const siteName = (state.meta.siteName || '').trim() || '课程管理平台';
+  const siteName = (state.meta.siteName || '').trim() || '豆沙馅和下雨天';
   const h1 = document.querySelector('.brand-text h1');
   if (h1) h1.textContent = siteName;
-  document.title = siteName + ' · 我和下雨天';
+  /* 名字里已含两人时不再追加后缀，避免「豆沙馅和下雨天 · 我和下雨天」这种重复 */
+  document.title = siteName;
   $('#weekNum').textContent = cw > 0 ? cw : '–';
   $$('#personSwitch .ps-btn').forEach((b) => {
     const p = b.dataset.person && b.dataset.person !== 'both' ? personById(b.dataset.person) : null;
