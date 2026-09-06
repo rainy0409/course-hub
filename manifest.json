@@ -1,6 +1,6 @@
 {
-  "name": "课程管理平台 · 我和下雨天",
-  "short_name": "课程平台",
+  "name": "豆沙馅和下雨天",
+  "short_name": "豆沙和雨",
   "description": "两人共用的课程表、作业、考试与量化加分管理",
   "start_url": "./",
   "display": "standalone",
