@@ -603,10 +603,11 @@ function nextClassInfo() {
 }
 
 function sessionsOn(date) {
-  /* 未开学（第 0 周）没有课 */
-  if (currentWeek() <= 0) return [];
-  const week = currentWeek();
+  /* 周次按目标日期自己算：查询明天时即使今天还没开学，明天已开学也要正常显示 */
   const day = dayIndexMon1(date);
+  const diff = Math.floor((startOfDay(date) - termStartDate()) / 86400000);
+  const week = Math.floor(diff / 7) + 1;
+  if (week < 1) return [];
   const out = [];
   state.courses.forEach((c) => {
     c.sessions.forEach((s) => {
@@ -911,7 +912,7 @@ function renderDash() {
   html += '<div class="pad" style="padding-top:2px">'
     + '<div class="sub-title">明天 · ' + DAY_NAMES[dayIndexMon1(tmr)] + ' <span class="muted tiny">' + tomorrow.length + ' 节</span></div>';
   if (!tomorrow.length) {
-    html += '<div class="muted tiny" style="padding:2px 0 10px">' + (cw > 0 ? '明天没有课' : '开学后这里会显示第二天的课') + '</div>';
+    html += '<div class="muted tiny" style="padding:2px 0 10px">' + (startOfDay(tmr) >= termStartDate() ? '明天没有课' : '开学后这里会显示第二天的课') + '</div>';
   } else {
     tomorrow.forEach((t) => {
       html += '<div class="mini-item" data-act="open-course" data-id="' + t.course.id + '" style="cursor:pointer">'
