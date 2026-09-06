@@ -1263,3 +1263,19 @@ button { cursor: pointer; }
 .bento .b-hero { flex: 1 1 58%; min-width: 300px; height: auto; }
 .bento .b-num { flex: 1 1 38%; min-width: 280px; }
 .bento .b-urgent { flex: 1 1 100%; }
+
+/* ---------- 日期时间控件：清晰度与主题一致 ---------- */
+
+input[type="date"], input[type="datetime-local"], input[type="time"] {
+  color: var(--text); background: var(--surface);
+  accent-color: var(--brass); font-variant-numeric: tabular-nums;
+}
+input[type="date"]::-webkit-datetime-edit,
+input[type="datetime-local"]::-webkit-datetime-edit,
+input[type="time"]::-webkit-datetime-edit { color: var(--text); }
+::-webkit-calendar-picker-indicator { opacity: .6; cursor: pointer; }
+[data-theme="dark"] ::-webkit-calendar-picker-indicator { filter: invert(1); opacity: .75; }
+/* 系统选择器弹窗：跟随主题配色，避免浅底浅字 */
+:root { --picker-scheme: light; }
+[data-theme="dark"] { --picker-scheme: dark; }
+input[type="date"], input[type="datetime-local"] { color-scheme: var(--picker-scheme); }
