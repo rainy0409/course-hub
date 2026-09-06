@@ -1294,3 +1294,34 @@ input[type="date"], input[type="datetime-local"] { color-scheme: var(--picker-sc
 
 /* 大标题加载中不闪烁：衬线 fallback 高度一致 */
 .brand-text h1, .dh-name, .dh-date, .ec-name, .ch-head { font-synthesis: none; }
+
+/* ---------- 在现有基础上融入轻快元素 ---------- */
+
+/* Hero 问候语：一句人话（数据加粗） */
+.dh-greet {
+  font-size: 14px; color: #b8c2cf; margin: 10px 0 4px; letter-spacing: .02em;
+}
+.dh-greet b { color: #f0ead8; font-weight: 700; padding: 0 2px; }
+
+/* 双人进度细条（环形下方的数字版） */
+.ring-bars { margin-top: 12px; display: flex; flex-direction: column; gap: 9px; }
+.rb-row { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+.rb-name { width: 44px; flex: none; color: var(--text-2); font-weight: 600; }
+.rb-track { flex: 1; height: 7px; border-radius: 99px; background: var(--surface-3); overflow: hidden; }
+.rb-fill { display: block; height: 100%; border-radius: 99px; }
+.rb-pct { width: 34px; text-align: right; color: var(--text-3); font-variant-numeric: tabular-nums; flex: none; }
+
+/* 今日一句话：软话块（铜金体系） */
+.dash-note {
+  margin-top: 14px; padding: 15px 20px; border-radius: var(--r-lg);
+  background: var(--brass-soft); border: 1px solid #e3d5bb;
+  font-size: 13.5px; color: #6f5730; line-height: 1.8;
+  display: flex; align-items: baseline; gap: 12px;
+}
+.dash-note .dn-tag {
+  flex: none; font-family: var(--serif); font-weight: 600; font-size: 12px;
+  letter-spacing: .14em; color: var(--brass); border: 1px solid #cbb389;
+  border-radius: 999px; padding: 1px 10px;
+}
+[data-theme="dark"] .dash-note { background: #2c2418; border-color: #4a4232; color: #c9b98a; }
+[data-theme="dark"] .dash-note .dn-tag { color: #c9a86a; border-color: #4a4232; }
