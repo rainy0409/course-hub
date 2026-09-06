@@ -718,6 +718,15 @@ function renderDashHero(ongoing, next) {
     + '</div>';
 }
 
+/* 概览问候语：按时段 + 剩余事项数生成一句人话 */
+function greeting(left) {
+  const h = new Date().getHours();
+  const hello = h < 6 ? '夜深了' : h < 11 ? '早上好' : h < 14 ? '中午好' : h < 18 ? '下午好' : '晚上好';
+  if (currentWeek() <= 0) return hello + '，开学倒计时中';
+  if (left === 0) return hello + '，<b>都清完了</b>，安心休息';
+  return hello + '，还有 <b>' + left + '</b> 件事在等你';
+}
+
 function renderDash() {
   const cw = currentWeek();
   const week = Math.max(1, cw);
@@ -805,6 +814,7 @@ function renderDash() {
   html += '<div class="bento">';
   html += '<div class="b-tile b-hero">'
     + '<div class="dh-date">' + esc(dateLine) + '</div>'
+    + '<div class="dh-greet">' + greeting(overdueHw.length + urgentTodos.filter((t) => !hwStatus(t, state.people[0].id).done).length) + '</div>'
     + '<div class="dh-sub">' + esc(state.meta.termName) + ' · ' + esc(weekLine) + '</div>'
     + '<div class="bh-divider"></div>'
     + heroRight
@@ -828,6 +838,16 @@ function renderDash() {
         const done = hwAll.filter((a) => hwApplies(a, p.id) && hwStatus(a, p.id).done).length;
         const pc = tot ? Math.round(done / tot * 100) : 0;
         return ringSvg(pc, p.id === 'rain' ? 'var(--rain)' : 'var(--me)', p.name);
+      }).join('')
+    + '</div>'
+    + '<div class="ring-bars">'
+    + state.people.map((p) => {
+        const tot = hwAll.filter((a) => hwApplies(a, p.id)).length;
+        const done = hwAll.filter((a) => hwApplies(a, p.id) && hwStatus(a, p.id).done).length;
+        const pc = tot ? Math.round(done / tot * 100) : 0;
+        return '<div class="rb-row"><span class="rb-name">' + esc(p.name) + '</span>'
+          + '<span class="rb-track"><span class="rb-fill" style="width:' + pc + '%;background:' + (p.id === 'rain' ? 'var(--rain)' : 'var(--me)') + '"></span></span>'
+          + '<span class="rb-pct">' + pc + '%</span></div>';
       }).join('')
     + '</div></div></div>';
 
@@ -1067,6 +1087,23 @@ function renderDash() {
     html += '</div>';
   });
   html += '</div></details>';
+
+  /* 今日一句话：按状态给一句软话（轻快版融入） */
+  (function () {
+    const leftNow = overdueHw.length + urgentTodos.filter((t) => !hwStatus(t, state.people[0].id).done).length;
+    let line, tag;
+    if (overdueHw.length) {
+      line = '还有 ' + overdueHw.length + ' 项逾期没处理——先解决它们，其他的都会顺起来。';
+      tag = '别拖了';
+    } else if (leftNow === 0) {
+      line = '该做的都做完了 ∎ 今晚是自由时间，好好休息。';
+      tag = '清零';
+    } else {
+      line = '还剩 ' + leftNow + ' 件事，两个人分着做，其实很轻。';
+      tag = '本周';
+    }
+    html += '<div class="dash-note"><span class="dn-tag">' + esc(tag) + '</span>' + esc(line) + '</div>';
+  })();
 
   /* PWA 引导（仅手机窄屏显示一次） */
   let pwaHintOff = false;
