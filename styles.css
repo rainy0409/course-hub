@@ -1325,3 +1325,30 @@ input[type="date"], input[type="datetime-local"] { color-scheme: var(--picker-sc
 }
 [data-theme="dark"] .dash-note { background: #2c2418; border-color: #4a4232; color: #c9b98a; }
 [data-theme="dark"] .dash-note .dn-tag { color: #c9a86a; border-color: #4a4232; }
+
+/* ---------- 日期时间控件：转轮/数字高对比（手机可读性） ---------- */
+
+input[type="date"], input[type="datetime-local"], input[type="time"] {
+  -webkit-text-fill-color: var(--text);   /* 防系统 UA 覆盖成浅色 */
+  -webkit-opacity: 1; opacity: 1;
+  font-weight: 600; letter-spacing: .01em;
+  accent-color: var(--accent);            /* 选中项高亮用墨蓝，对比最强 */
+  background-color: var(--surface);
+  color: var(--text);
+}
+input[type="date"]::-webkit-datetime-edit-year-field,
+input[type="date"]::-webkit-datetime-edit-month-field,
+input[type="date"]::-webkit-datetime-edit-day-field,
+input[type="datetime-local"]::-webkit-datetime-edit-year-field,
+input[type="datetime-local"]::-webkit-datetime-edit-month-field,
+input[type="datetime-local"]::-webkit-datetime-edit-day-field,
+input[type="datetime-local"]::-webkit-datetime-edit-hour-field,
+input[type="datetime-local"]::-webkit-datetime-edit-minute-field,
+input[type="datetime-local"]::-webkit-datetime-edit-ampm-field,
+input[type="time"]::-webkit-datetime-edit-hour-field,
+input[type="time"]::-webkit-datetime-edit-minute-field {
+  color: var(--text); -webkit-text-fill-color: var(--text);
+  background: transparent; padding: 0 1px;
+}
+::selection { background: var(--accent); color: #fff; }
+[data-theme="dark"] ::-webkit-calendar-picker-indicator { filter: invert(1) brightness(1.4); opacity: .9; }
