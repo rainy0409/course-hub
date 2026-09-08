@@ -1020,7 +1020,7 @@ function renderDash() {
     rows.forEach((a) => {
       const c = courseById(a.courseId);
       const di = dueInfo(a);
-      html += '<div class="row" data-act="edit-hw" data-id="' + a.id + '" style="cursor:pointer">'
+      html += '<div class="row" data-act="view-hw" data-id="' + a.id + '" style="cursor:pointer">'
         + '<div class="row-main"><div class="row-title">' + esc(a.title) + '</div>'
         + '<div class="row-meta"><span class="badge">' + esc(c ? (c.shortName || c.name) : '未指定') + '</span>'
         + (di.cls ? '<span class="badge ' + di.cls + '">' + esc(di.text) + '</span>' : '<span>' + esc(di.text) + '</span>')
@@ -1041,7 +1041,7 @@ function renderDash() {
     todos.forEach((t) => {
       const di = t.due ? dueInfo(t) : null;
       const showOwners = activePerson === 'both' ? todoOwners(t) : [personById(activePerson)];
-      html += '<div class="row" data-act="edit-todo" data-id="' + t.id + '" style="cursor:pointer">'
+      html += '<div class="row" data-act="view-todo" data-id="' + t.id + '" style="cursor:pointer">'
         + '<div class="row-main"><div class="row-title">' + esc(t.title) + '</div>'
         + '<div class="row-meta">'
         + (di ? (di.cls ? '<span class="badge ' + di.cls + '">' + esc(di.text) + '</span>' : '<span class="muted tiny">' + esc(di.text) + '</span>') : '<span class="muted tiny">无截止</span>')
@@ -2102,6 +2102,46 @@ function openExamForm(courseId, examId) {
   };
 }
 
+/* 事项详情：点行查看（备注、时间、两人状态），点铅笔才编辑 */
+function openItemDetail(id) {
+  let a = state.assignments.filter((x) => x.id === id)[0];
+  let isTodo = false;
+  if (!a && state.todos) { a = state.todos.filter((x) => x.id === id)[0]; isTodo = true; }
+  if (!a) return;
+  const c = courseById(a.courseId);
+  const kind = (a.kind === 'final' ? '期末作业' : isTodo ? '待办' : '作业');
+  let body = '<div class="mini-list">';
+  if (a.courseId || !isTodo) {
+    body += '<div class="mini-item"><div class="mi-main"><div>' + esc(c ? (c.shortName || c.name) : '未指定课程')
+      + '</div><div class="mi-sub">' + kind + ownerBadge(a) + '</div></div></div>';
+  }
+  if (a.startTime) {
+    body += '<div class="mini-item"><div class="mi-main"><div>进行时间</div>'
+      + '<div class="mi-sub">' + esc(fmtDateShort(new Date(a.startTime)) + ' ' + fmtTime(new Date(a.startTime))) + '</div></div></div>';
+  }
+  body += '<div class="mini-item"><div class="mi-main"><div>截止</div><div class="mi-sub">'
+    + (a.due ? esc(fmtDateShort(new Date(a.due)) + ' ' + fmtTime(new Date(a.due))) + ' · ' + esc(dueInfo(a).text) : '无截止')
+    + '</div></div></div>';
+  if (a.note) {
+    body += '<div class="mini-item"><div class="mi-main"><div>公共备注</div><div class="mi-sub">' + esc(a.note) + '</div></div></div>';
+  }
+  state.people.forEach((p) => {
+    if (!hwApplies(a, p.id)) return;
+    const st = hwStatus(a, p.id);
+    body += '<div class="mini-item"><div class="mi-main"><div>' + esc(p.name)
+      + ' <span class="badge ' + (st.done ? 'ok' : '') + '">' + (st.done ? '已完成' : '未完成') + '</span></div>'
+      + '<div class="mi-sub">' + (st.done && st.doneAt ? '完成于 ' + esc(fmtDateShort(new Date(st.doneAt)) + ' ' + fmtTime(new Date(st.doneAt))) + ' · ' : '')
+      + (st.note ? esc(st.note) : '无个人备注') + '</div></div></div>';
+  });
+  body += '</div>';
+  openModal(a.title, body, [
+    { label: '关闭', key: 'cancel' },
+    { label: '编辑', key: 'save', primary: true }
+  ]);
+  const editBtn = $('#modalFoot [data-mbtn="save"]');
+  if (editBtn) editBtn.onclick = () => { closeModal(); isTodo ? openTodoForm(id) : openHomeworkForm(id); };
+}
+
 function openHomeworkForm(id, presetCourseId) {
   const a = id ? state.assignments.filter((x) => x.id === id)[0] : null;
   const isNew = !a;
@@ -2466,6 +2506,8 @@ function onAction(act, el, ev) {
       break;
     }
     case 'add-todo': openTodoForm(); break;
+    case 'view-hw': openItemDetail(id); break;
+    case 'view-todo': openItemDetail(id); break;
     case 'edit-todo': openTodoForm(id); break;
     case 'del-todo': {
       const t = (state.todos || []).filter((x) => x.id === id)[0];
