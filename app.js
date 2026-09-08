@@ -735,11 +735,13 @@ function renderDash() {
   const ongoing = currentSession();
 
   const hwAll = state.assignments.slice().sort((a, b) => hwSortKey(a) - hwSortKey(b));
+  /* 进度统计口径：作业 + 待办合并（勾任何一项都会动进度） */
+  const allTasks = hwAll.concat(state.todos || []);
   const people = activePerson === 'both' ? state.people : [personById(activePerson)];
 
   let undone = 0, overdue = 0, dueSoon = 0, noDue = 0;
   const now = new Date();
-  hwAll.forEach((a) => {
+  allTasks.forEach((a) => {
     people.forEach((p) => {
       if (!hwApplies(a, p.id)) return;
       const st = hwStatus(a, p.id);
@@ -763,7 +765,7 @@ function renderDash() {
   const urgentTodos = (state.todos || []).filter((t) => {
     if (!todoUndone(t)) return false;
     const u = todoUrgency(t);
-    return u === 'overdue' || u === 'soon';
+    return u === 'overdue' || u === 'today' || u === 'soon';
   }).sort((a, b) => hwSortKey(a) - hwSortKey(b));
   const overdueHw = hwAll.filter((a) => people.some((p) => isOverdue(a, p.id)));
   const examSoon = [];
@@ -824,26 +826,26 @@ function renderDash() {
 
   html += '<div class="b-tile b-num"><div class="bh-label">今日概览</div><div class="bn-grid">'
     + bnum('今日课程', today.length + ' 节', cw > 0 ? '第 ' + week + ' 周' : '未开学')
-    + bnum('待完成作业', String(undone), overdue + ' 逾期 · ' + noDue + ' 无截止')
+    + bnum('待完成', String(undone), overdue + ' 逾期 · ' + noDue + ' 无截止')
     + people.map((p) => {
-        const tot = hwAll.filter((a) => hwApplies(a, p.id)).length;
-        const done = hwAll.filter((a) => hwApplies(a, p.id) && hwStatus(a, p.id).done).length;
-        return bnum(p.name + ' 作业', (tot ? Math.round(done / tot * 100) : 0) + '%', done + ' / ' + tot);
+        const tot = allTasks.filter((a) => hwApplies(a, p.id)).length;
+        const done = allTasks.filter((a) => hwApplies(a, p.id) && hwStatus(a, p.id).done).length;
+        return bnum(p.name + ' 进度', (tot ? Math.round(done / tot * 100) : 0) + '%', done + ' / ' + tot);
       }).join('')
     + scoreTotals.map((st) => bnum(st.p.name + ' 加分', '+' + st.total.toFixed(1), state.scores.filter((s) => s.personId === st.p.id).length + ' 条记录')).join('')
     + '</div>'
     + '<div style="margin-top:12px"><div class="bh-label">双人进度</div><div class="ring-wrap">'
     + state.people.map((p) => {
-        const tot = hwAll.filter((a) => hwApplies(a, p.id)).length;
-        const done = hwAll.filter((a) => hwApplies(a, p.id) && hwStatus(a, p.id).done).length;
+        const tot = allTasks.filter((a) => hwApplies(a, p.id)).length;
+        const done = allTasks.filter((a) => hwApplies(a, p.id) && hwStatus(a, p.id).done).length;
         const pc = tot ? Math.round(done / tot * 100) : 0;
         return ringSvg(pc, p.id === 'rain' ? 'var(--rain)' : 'var(--me)', p.name);
       }).join('')
     + '</div>'
     + '<div class="ring-bars">'
     + state.people.map((p) => {
-        const tot = hwAll.filter((a) => hwApplies(a, p.id)).length;
-        const done = hwAll.filter((a) => hwApplies(a, p.id) && hwStatus(a, p.id).done).length;
+        const tot = allTasks.filter((a) => hwApplies(a, p.id)).length;
+        const done = allTasks.filter((a) => hwApplies(a, p.id) && hwStatus(a, p.id).done).length;
         const pc = tot ? Math.round(done / tot * 100) : 0;
         return '<div class="rb-row"><span class="rb-name">' + esc(p.name) + '</span>'
           + '<span class="rb-track"><span class="rb-fill" style="width:' + pc + '%;background:' + (p.id === 'rain' ? 'var(--rain)' : 'var(--me)') + '"></span></span>'
@@ -1296,15 +1298,17 @@ function todoUrgent(t) {
 /* 紧急度：overdue > soon(≤3天) > week(≤7天) > normal > none */
 function todoUrgency(t) {
   if (!t.due) return 'none';
-  const now = new Date();
-  const days = Math.floor((startOfDay(new Date(t.due)) - startOfDay(now)) / 86400000);
-  if (days <= 0) return 'overdue';
+  const d = new Date(t.due);
+  const days = Math.floor((startOfDay(d) - startOfDay(new Date())) / 86400000);
+  if (days < 0) return 'overdue';
+  /* 今天到期 ≠ 逾期：时刻过了才算，否则显示「今天截止」 */
+  if (days === 0) return d < new Date() ? 'overdue' : 'today';
   if (days <= 3) return 'soon';
   if (days <= 7) return 'week';
   return 'normal';
 }
 
-const URGENT_LABEL = { overdue: ['已逾期', 'danger'], soon: ['3 天内', 'warn'], week: ['本周内', ''] };
+const URGENT_LABEL = { overdue: ['已逾期', 'danger'], today: ['今天截止', 'warn'], soon: ['3 天内', 'warn'], week: ['本周内', ''] };
 
 function renderTodoList() {
   /* Things 3 心智模型：今天/已逾期 → 即将到来 → 收集箱（无截止）→ 已完成折叠 */
