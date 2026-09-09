@@ -256,7 +256,7 @@ function dueInfo(a) {
   const diffDays = Math.floor((startOfDay(d) - startOfDay(now)) / 86400000);
   const t = fmtTime(d);
   if (diffDays < 0) return { text: '逾期 ' + (-diffDays) + ' 天（' + fmtDateShort(d) + ' ' + t + '）', cls: 'danger' };
-  if (diffDays === 0) return { text: '今天 ' + t + ' 截止', cls: 'warn' };
+  if (diffDays === 0) return d < now ? { text: '今天 ' + t + ' 已截止', cls: 'danger' } : { text: '今天 ' + t + ' 截止', cls: 'warn' };
   if (diffDays === 1) return { text: '明天 ' + t + ' 截止', cls: 'warn' };
   if (diffDays <= 3) return { text: diffDays + ' 天后截止（' + fmtDateShort(d) + ' ' + t + '）', cls: 'warn' };
   return { text: fmtDateShort(d) + ' ' + t + ' 截止', cls: '' };
@@ -1314,13 +1314,16 @@ function renderTodoList() {
   /* Things 3 心智模型：今天/已逾期 → 即将到来 → 收集箱（无截止）→ 已完成折叠 */
   const todos = state.todos || [];
   const now = new Date();
-  const buckets = { today: [], upcoming: [], inbox: [], done: [] };
+  const buckets = { overdue: [], today: [], upcoming: [], inbox: [], done: [] };
   todos.forEach((t) => {
     const allDone = todoOwners(t).every((p) => hwStatus(t, p.id).done);
     if (allDone) { buckets.done.push(t); return; }
     if (!t.due) { buckets.inbox.push(t); return; }
-    const days = Math.floor((startOfDay(new Date(t.due)) - startOfDay(now)) / 86400000);
-    if (days <= 0) buckets.today.push(t);
+    const d = new Date(t.due);
+    const days = Math.floor((startOfDay(d) - startOfDay(now)) / 86400000);
+    /* 真逾期：跨天已过，或今天但时刻已过；今天未到时刻的进「今天」桶 */
+    if (days < 0 || (days === 0 && d < now)) buckets.overdue.push(t);
+    else if (days === 0) buckets.today.push(t);
     else buckets.upcoming.push(t);
   });
   const byDue = (a, b) => (a.due || '9999').localeCompare(b.due || '9999');
@@ -1330,7 +1333,7 @@ function renderTodoList() {
   const item = (t) => {
     const allDone = todoOwners(t).every((p) => hwStatus(t, p.id).done);
     const di = t.due ? dueInfo(t) : null;
-    return '<div class="tk-item' + (allDone ? ' is-done' : '') + '">'
+    return '<div class="tk-item' + (allDone ? ' is-done' : '') + '" data-act="view-todo" data-id="' + t.id + '" style="cursor:pointer">'
       + '<div class="tki-main">'
       + '<div class="tki-title">' + esc(t.title)
       + (t.owner && t.owner !== 'both' ? ' <span class="badge">仅 ' + esc(personById(t.owner).name) + '</span>' : '')
@@ -1347,8 +1350,12 @@ function renderTodoList() {
   };
 
   let html = '<div class="todo-things">';
+  if (buckets.overdue.length) {
+    html += '<div class="tk-section-head" style="color:var(--danger)">● 已逾期</div>';
+    buckets.overdue.forEach((t) => { html += item(t); });
+  }
   if (buckets.today.length) {
-    html += '<div class="tk-section-head" style="color:var(--danger)">● 今天 / 已逾期</div>';
+    html += '<div class="tk-section-head" style="color:var(--danger)">● 今天到期</div>';
     buckets.today.forEach((t) => { html += item(t); });
   }
   if (buckets.upcoming.length) {
@@ -1585,7 +1592,7 @@ function renderHomework() {
       const c = courseById(a.courseId);
       const di = dueInfo(a);
       const chipPeople = state.people.filter((p) => hwApplies(a, p.id));
-      return '<div class="row hw-row">'
+      return '<div class="row hw-row" data-act="view-hw" data-id="' + a.id + '" style="cursor:pointer">'
         + '<div class="row-main">'
         + '<div class="row-title">' + esc(a.title) + ownerBadge(a) + '</div>'
         + '<div class="row-meta">'
